@@ -1,0 +1,13 @@
+GTAGS
+GRTAGS
+GPATH
+.expert
+examples/backup
+examples/lib
+examples/EtfParser
+*.o
+*.ppu
+test/fpcunitbeam
+packages/lib/
+test/lib/
+test/backup
