@@ -75,9 +75,10 @@ type
     constructor Create;
   end;
 
-  { Marks a TPersistent subclass as the Pascal representation of a named
-    Elixir struct.  The name is the fully-qualified Elixir module, e.g.
-    'Elixir.MyApp.User'.  TEtfStructRegistry.Register reads this attribute. }
+  { Marks a TPersistent subclass or a record type as the Pascal representation
+    of a named Elixir struct.  The name is the fully-qualified Elixir module,
+    e.g. 'Elixir.MyApp.User'.  On classes, TEtfStructRegistry.Register reads it.
+    On records, TEtfRecordMapper uses it when encoding (adds __struct__ key). }
   EtfStructAttribute = class(TCustomAttribute)
   private
     FStructName: string;
@@ -126,6 +127,10 @@ type
 
     { EtfStruct name for AClass, or '' if not annotated }
     class function GetStructName(AClass: TClass): string;
+
+    { EtfStruct name for a type (e.g. record), or '' if not annotated.
+      Use for record types: [EtfStruct('Elixir.Address')] on the record. }
+    class function GetStructNameForType(ATypeInfo: PTypeInfo): string;
 
     { True if the class has an EtfStructAttribute }
     class function HasStructAttribute(AClass: TClass): Boolean;
@@ -368,6 +373,29 @@ end;
 class function TEtfAttributeHelper.HasStructAttribute(AClass: TClass): Boolean;
 begin
   Result := GetStructName(AClass) <> '';
+end;
+
+class function TEtfAttributeHelper.GetStructNameForType(ATypeInfo: PTypeInfo): string;
+var
+  Ctx: TRttiContext;
+  RttiType: TRttiType;
+  Attr: TCustomAttribute;
+begin
+  Result := '';
+  if ATypeInfo = nil then Exit;
+  Ctx := TRttiContext.Create;
+  try
+    RttiType := Ctx.GetType(ATypeInfo);
+    if RttiType = nil then Exit;
+    for Attr in RttiType.GetAttributes do
+      if Attr is EtfStructAttribute then
+      begin
+        Result := EtfStructAttribute(Attr).StructName;
+        Exit;
+      end;
+  finally
+    Ctx.Free;
+  end;
 end;
 
 end.

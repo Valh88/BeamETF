@@ -21,6 +21,7 @@ uses
 type
   // Stack-friendly mirror of Elixir %User{}
   {$RTTI EXPLICIT FIELDS([vcPublic,vcPublished])}
+  [EtfStruct('Elixir.User')]
   TUserRecord = record
     [EtfField('id')]
     Id: Integer;
@@ -39,6 +40,7 @@ type
 
   // Stack-friendly mirror of Elixir %Address{}
   {$RTTI EXPLICIT FIELDS([vcPublic,vcPublished])}
+  [EtfStruct('Elixir.Address')]
   TAddressRecord = record
     [EtfField('street')]
     Street: string;

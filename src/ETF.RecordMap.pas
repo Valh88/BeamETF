@@ -50,6 +50,7 @@ unit ETF.RecordMap;
     Boolean                      ← TEtfAtom  (true / false)
     string                       ← TEtfBinary (UTF-8), TEtfString, TEtfAtom
     enum                         ← TEtfAtom  (enum name) or TEtfInteger
+    nested record                ← TEtfMap   (recurse into field)
 
   Field-type mapping (encode):
     Integer/Int64                → SMALL_INTEGER_EXT / INTEGER_EXT / SMALL_BIG_EXT
@@ -58,6 +59,7 @@ unit ETF.RecordMap;
     string  (default)            → BINARY_EXT  (UTF-8)
     string  + [EtfAsAtom]        → SMALL_ATOM_UTF8_EXT
     enum                         → SMALL_ATOM_UTF8_EXT  (enum name)
+    nested record                → MAP_EXT (recurse; no __struct__ unless custom)
 }
 
 {$mode delphi}
@@ -357,8 +359,18 @@ begin
         Continue;
       end;
 
-      TVal := TermToTValue(ValTerm, RF.FieldType.TypeKind, RF.FieldType.Handle);
-      RF.SetValue(AData, TVal);
+      if RF.FieldType.TypeKind = tkRecord then
+      begin
+        { Nested record: recurse into the map term }
+        if ValTerm is TEtfMap then
+          FillFromTerm(PByte(AData) + RF.Offset, RF.FieldType.Handle, ValTerm);
+        { else leave field zeroed }
+      end
+      else
+      begin
+        TVal := TermToTValue(ValTerm, RF.FieldType.TypeKind, RF.FieldType.Handle);
+        RF.SetValue(AData, TVal);
+      end;
     end;
   finally
     Ctx.Free;
@@ -375,15 +387,20 @@ var
   Key: string;
   TVal: TValue;
   ETerm: TEtfTerm;
+  StructName: string;
 begin
-  if AStructName <> '' then
-    Map := TEtfElixirStruct.Create(AStructName)
+  StructName := AStructName;
+  if StructName = '' then
+    StructName := TEtfAttributeHelper.GetStructNameForType(ATypeInfo);
+
+  if StructName <> '' then
+    Map := TEtfElixirStruct.Create(StructName)
   else
     Map := TEtfMap.Create;
 
   try
-    if AStructName <> '' then
-      Map.Put(TEtfAtom.Create(ATOM_STRUCT), TEtfAtom.Create(AStructName));
+    if StructName <> '' then
+      Map.Put(TEtfAtom.Create(ATOM_STRUCT), TEtfAtom.Create(StructName));
 
     Ctx := TRttiContext.Create;
     try
@@ -398,7 +415,11 @@ begin
         if IsIgnored(RF) then Continue;
         Key := EtfFieldName(RF);
         TVal := RF.GetValue(AData);
-        ETerm := TValueToTerm(TVal, RF);
+        if RF.FieldType.TypeKind = tkRecord then
+          ETerm := TermFromRecord(PByte(AData) + RF.Offset, RF.FieldType.Handle,
+            TEtfAttributeHelper.GetStructNameForType(RF.FieldType.Handle))
+        else
+          ETerm := TValueToTerm(TVal, RF);
         if ETerm <> nil then
           Map.Put(TEtfAtom.Create(Key), ETerm);
       end;

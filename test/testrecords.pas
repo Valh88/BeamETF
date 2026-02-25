@@ -56,6 +56,28 @@ type
     Status: TStatusEnum;
   end;
 
+  // Nested: used inside TProfileRecord
+  {$RTTI EXPLICIT FIELDS([vcPublic,vcPublished])}
+  [EtfStruct('Elixir.Address')]
+  TAddressRecord = record
+    [EtfField('street')]
+    Street: string;
+    [EtfField('city')]
+    City: string;
+    [EtfField('country')]
+    Country: string;
+  end;
+
+  // Record with nested record field
+  {$RTTI EXPLICIT FIELDS([vcPublic,vcPublished])}
+  [EtfStruct('Elixir.Profile')]
+  TProfileRecord = record
+    [EtfField('name')]
+    Name: string;
+    [EtfField('address')]
+    Address: TAddressRecord;
+  end;
+
 implementation
 
 end.

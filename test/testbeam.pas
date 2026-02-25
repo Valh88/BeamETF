@@ -171,6 +171,10 @@ type
     procedure TestEnumField;
     { Decode using TEtfRecordMapper<T>.Decode(bytes) shortcut }
     procedure TestDecodeBytes;
+    { Nested record: decode map with nested map into record with record field }
+    procedure TestNestedRecord;
+    { [EtfStruct] on records: ToTerm adds __struct__ from type attribute }
+    procedure TestNestedRecordStructName;
   end;
 
 implementation
@@ -1174,6 +1178,66 @@ begin
   AssertEquals('Decode id', 99, U.Id);
   AssertEquals('Decode name', 'Eve', U.Name);
   AssertTrue('Decode score', Abs(U.Score - 100.0) < 1e-10);
+end;
+
+procedure TTestEtfRecord.TestNestedRecord;
+var
+  Map, AddrMap: TEtfMap;
+  P: TProfileRecord;
+  Bytes: TBytes;
+  P2: TProfileRecord;
+begin
+  AddrMap := TEtfMap.Create;
+  AddrMap.Put(TEtfAtom.Create('street'),  TEtfBinary.Create(BytesOf('Main St')));
+  AddrMap.Put(TEtfAtom.Create('city'),    TEtfBinary.Create(BytesOf('Boston')));
+  AddrMap.Put(TEtfAtom.Create('country'), TEtfBinary.Create(BytesOf('US')));
+
+  Map := TEtfMap.Create;
+  Map.Put(TEtfAtom.Create('name'), TEtfBinary.Create(BytesOf('John')));
+  Map.Put(TEtfAtom.Create('address'), AddrMap);
+  try
+    FillChar(P, SizeOf(P), 0);
+    specialize TEtfRecordMapper<TProfileRecord>.FillFromTerm(P, Map);
+    AssertEquals('Profile.Name', 'John', P.Name);
+    AssertEquals('Profile.Address.Street', 'Main St', P.Address.Street);
+    AssertEquals('Profile.Address.City', 'Boston', P.Address.City);
+    AssertEquals('Profile.Address.Country', 'US', P.Address.Country);
+
+    Bytes := specialize TEtfRecordMapper<TProfileRecord>.Encode(P);
+    FillChar(P2, SizeOf(P2), 0);
+    P2 := specialize TEtfRecordMapper<TProfileRecord>.Decode(Bytes);
+    AssertEquals('Roundtrip Name', 'John', P2.Name);
+    AssertEquals('Roundtrip Address.Street', 'Main St', P2.Address.Street);
+    AssertEquals('Roundtrip Address.City', 'Boston', P2.Address.City);
+    AssertEquals('Roundtrip Address.Country', 'US', P2.Address.Country);
+  finally
+    Map.Free;
+  end;
+end;
+
+procedure TTestEtfRecord.TestNestedRecordStructName;
+var
+  P: TProfileRecord;
+  Term: TEtfMap;
+  AddrTerm: TEtfTerm;
+begin
+  FillChar(P, SizeOf(P), 0);
+  P.Name := 'Jane';
+  P.Address.Street := 'Elm St';
+  P.Address.City := 'NYC';
+  P.Address.Country := 'US';
+  Term := specialize TEtfRecordMapper<TProfileRecord>.ToTerm(P);
+  try
+    AssertTrue('Root is Elixir struct', Term is TEtfElixirStruct);
+    AssertEquals('Root struct name', 'Elixir.Profile',
+      TEtfElixirStruct(Term).ElixirStructName);
+    AddrTerm := Term.GetByAtom('address');
+    AssertTrue('Address is Elixir struct', AddrTerm is TEtfElixirStruct);
+    AssertEquals('Address struct name', 'Elixir.Address',
+      TEtfElixirStruct(AddrTerm).ElixirStructName);
+  finally
+    Term.Free;
+  end;
 end;
 
 initialization

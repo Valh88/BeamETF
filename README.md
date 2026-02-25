@@ -234,6 +234,7 @@ Cls := TEtfStructRegistry.FindClass('Elixir.MyApp.User');  // returns TUser
 | `[EtfIgnore]` | property / field | Exclude from encode and decode |
 | `[EtfRequired]` | property / field | Raise `EEtfMappingError` if key absent during decode |
 | `[EtfStruct('Elixir.Mod')]` | class | Elixir struct name for `TEtfStructRegistry.Register` |
+| `[EtfStruct('Elixir.Mod')]` | record | When encoding, adds `__struct__` key (and for nested record fields) |
 | `[EtfAsAtom]` | string property/field | Encode as `SMALL_ATOM_UTF8_EXT` instead of binary |
 | `[EtfAsBinary]` | string property/field | Force `BINARY_EXT` encoding |
 
@@ -251,6 +252,7 @@ or `{$mode delphi}`.
 | `string` + `[EtfAsAtom]` | `TEtfAtom` | `SMALL_ATOM_UTF8_EXT` |
 | `enum` | `TEtfAtom` (name) or `TEtfInteger` | `SMALL_ATOM_UTF8_EXT` (name) |
 | `TObject` descendant | `TEtfMap` | `MAP_EXT` (recursive) |
+| nested record field | `TEtfMap` | `MAP_EXT` (recursive; struct name from `[EtfStruct]` on record type) |
 
 ## Mapper Comparison
 
@@ -260,9 +262,18 @@ or `{$mode delphi}`.
 | RTTI source | `published` properties | public fields + `{$RTTI EXPLICIT ...}` |
 | Memory | `Create` / `Free` required | no allocation — fill `var` directly |
 | Mode required | `objfpc` or `delphi` | record unit must use `delphi` |
-| Nested structs | `TObject` properties | not yet supported |
+| Nested structs | `TObject` properties (recursive) | Nested record fields; `[EtfStruct]` on record adds `__struct__` when encoding |
 
 ## Running Tests
+
+With **lazbuild** (paths are in `test/fpcunitbeam.lpi`):
+
+```bash
+lazbuild test/fpcunitbeam.lpi
+./test/fpcunitbeam
+```
+
+With **fpc** (if FCL paths are not in fpc.cfg):
 
 ```bash
 cd test
@@ -278,7 +289,7 @@ fpc \
   fpcunitbeam.lpr
 
 ./fpcunitbeam
-# Number of run tests: 48
+# Number of run tests: 50
 # Number of errors:    0
 # Number of failures:  0
 ```
