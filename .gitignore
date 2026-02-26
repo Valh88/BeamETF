@@ -12,3 +12,4 @@ packages/lib/
 test/lib/
 test/backup
 fpcunitbeam
+.vscode

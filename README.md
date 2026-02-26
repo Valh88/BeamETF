@@ -231,7 +231,7 @@ Cls := TEtfStructRegistry.FindClass('Elixir.MyApp.User');  // returns TUser
 | Attribute | Target | Effect |
 |-----------|--------|--------|
 | `[EtfField('key')]` | property / field | Map to this ETF key name (default: lowercase name) |
-| `[EtfIgnore]` | property / field | Exclude from encode and decode |
+| `[EtfIgnore]` | property / field | Exclude from encode and decode; use for list/array fields and fill them manually from the term |
 | `[EtfRequired]` | property / field | Raise `EEtfMappingError` if key absent during decode |
 | `[EtfStruct('Elixir.Mod')]` | class | Elixir struct name for `TEtfStructRegistry.Register` |
 | `[EtfStruct('Elixir.Mod')]` | record | When encoding, adds `__struct__` key (and for nested record fields) |
@@ -240,6 +240,18 @@ Cls := TEtfStructRegistry.FindClass('Elixir.MyApp.User');  // returns TUser
 
 Attributes require `{$modeswitch prefixedattributes}` (objfpc mode)
 or `{$mode delphi}`.
+
+### Lists and tuples
+
+ETF **lists** and **tuples** are not mapped to Pascal list/array fields automatically. To handle a map key whose value is a list (e.g. `users => [%User{}, ...]`):
+
+1. Mark the list property or field with **`[EtfIgnore]`** so the mapper skips it.
+2. Decode the rest with `TEtfMapper<T>.FillFromTerm(Obj, MapTerm)` or `FromTerm(MapTerm)`.
+3. Manually get the list from the same term and fill your collection:
+   - `ListTerm := MapTerm.GetByAtom('users');`
+   - If `ListTerm is TEtfList` then loop `TEtfList(ListTerm).Count` and for each element call `TEtfMapper<TItem>.FromTerm(TEtfList(ListTerm).Get(I))` (or decode into a record), then add to your list/array.
+
+The same approach works for tuples: read the term, then read elements by index from `TEtfTuple` and map or assign as needed.
 
 ## Type Mapping
 
