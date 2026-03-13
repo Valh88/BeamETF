@@ -30,7 +30,7 @@ packages/
   beametf.lpk        — Lazarus package
 
 test/
-  testbeam.pas       — FPCUnit test suite (48 tests)
+  testbeam.pas       — FPCUnit test suite (50 tests)
   testrecords.pas    — record type definitions for record-mapper tests
   fpcunitbeam.lpr    — test runner project
 
@@ -112,6 +112,7 @@ type
 var
   User: TUser;
   Bytes: TBytes;
+  Term: TEtfMap;
 begin
   // Decode ETF bytes into TUser (caller owns result):
   User := specialize TEtfMapper<TUser>.Decode(Bytes);
@@ -121,8 +122,17 @@ begin
     User.Free;
   end;
 
-  // Encode TUser back to ETF (produces a map with __struct__ key):
+  // Encode TUser back to ETF bytes (produces a map with __struct__ key):
   Bytes := specialize TEtfMapper<TUser>.Encode(User);
+
+  // Or build an ETF map term directly. Because of [EtfStruct],
+  // this will be a TEtfElixirStruct with __struct__ == :'Elixir.MyApp.User':
+  Term := specialize TEtfMapper<TUser>.ToTerm(User);
+  try
+    // ... send Term over the wire, or inspect it ...
+  finally
+    Term.Free;
+  end;
 end;
 ```
 
@@ -139,6 +149,7 @@ The record unit must use `{$mode delphi}` and declare
 uses ETF.Attributes;
 
 type
+  [EtfStruct('Elixir.MyApp.Point')]
   {$RTTI EXPLICIT FIELDS([vcPublic,vcPublished])}
   TPointRecord = record
     [EtfField('x')]
@@ -168,11 +179,15 @@ begin
   // Encode back to bytes:
   Bytes := specialize TEtfRecordMapper<TPointRecord>.Encode(P);
 
-  // Build an Elixir struct map (adds __struct__ key):
-  Term := specialize TEtfRecordMapper<TPointRecord>.ToTerm(P, 'Elixir.MyApp.Point');
+  // Build an Elixir struct map. Because of [EtfStruct] on TPointRecord,
+  // this will be a TEtfElixirStruct with __struct__ == :'Elixir.MyApp.Point':
+  Term := specialize TEtfRecordMapper<TPointRecord>.ToTerm(P);
   Term.Free;
 end;
 ```
+
+When you pass an explicit struct name to `ToTerm(P, 'Elixir.Other.Point')`,
+it overrides the `[EtfStruct]` name for that particular call.
 
 ### Register Elixir structs
 
